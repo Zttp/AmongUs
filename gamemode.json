@@ -28,7 +28,7 @@
         "Name": "PlayersToStart",
         "DisplayName": "Игроков для старта",
         "Default": 1,
-        "Min": 4,
+        "Min": 1,
         "Max": 12,
         "Order": 3
       },
