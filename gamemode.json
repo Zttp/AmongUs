@@ -1,0 +1,75 @@
+{
+  "Name": "Among Us",
+  "Description": "Режим в стиле Among Us с предателями и заданиями",
+  "StartClientVersion": 573,
+  "MapFilter": {
+    "IsBlank": false,
+    "HasParcourEnd": false
+  },
+  "Parameters": {
+    "Int": [
+      {
+        "Name": "ImpostorCount",
+        "DisplayName": "Количество предателей",
+        "Default": 1,
+        "Min": 1,
+        "Max": 3,
+        "Order": 1
+      },
+      {
+        "Name": "TasksPerPlayer",
+        "DisplayName": "Заданий на игрока",
+        "Default": 3,
+        "Min": 1,
+        "Max": 5,
+        "Order": 2
+      },
+      {
+        "Name": "PlayersToStart",
+        "DisplayName": "Игроков для старта",
+        "Default": 4,
+        "Min": 4,
+        "Max": 12,
+        "Order": 3
+      },
+      {
+        "Name": "KillCooldown",
+        "DisplayName": "Перезарядка убийства (сек)",
+        "Default": 30,
+        "Min": 10,
+        "Max": 60,
+        "Order": 4
+      },
+      {
+        "Name": "DiscussionTime",
+        "DisplayName": "Время обсуждения (сек)",
+        "Default": 90,
+        "Min": 30,
+        "Max": 180,
+        "Order": 5
+      },
+      {
+        "Name": "VotingTime",
+        "DisplayName": "Время голосования (сек)",
+        "Default": 60,
+        "Min": 15,
+        "Max": 120,
+        "Order": 6
+      }
+    ],
+    "Bool": [
+      {
+        "Name": "SheriffEnabled",
+        "DisplayName": "Включить шерифа",
+        "Default": true,
+        "Order": 7
+      },
+      {
+        "Name": "FriendlyFire",
+        "DisplayName": "Дружественный огонь",
+        "Default": false,
+        "Order": 8
+      }
+    ]
+  }
+}
