@@ -12,7 +12,7 @@ const DISCUSSION_TIME = GameMode.Parameters.GetInt("DiscussionTime") || 90;
 const VOTING_TIME = GameMode.Parameters.GetInt("VotingTime") || 60;
 
 // Константы
-const WAITING_TIME = 30;
+const WAITING_TIME = 10;
 const GAME_TIME = 600;
 const END_TIME = 30;
 
