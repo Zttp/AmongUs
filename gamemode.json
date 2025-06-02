@@ -27,7 +27,7 @@
       {
         "Name": "PlayersToStart",
         "DisplayName": "Игроков для старта",
-        "Default": 4,
+        "Default": 1,
         "Min": 4,
         "Max": 12,
         "Order": 3
@@ -57,26 +57,6 @@
         "Order": 6
       }
     ],
-    "Dropdown": [
-      {
-        "Name": "PlayersToStart",
-        "DisplayName": "GmParams/Length",
-        "Default": "Length_XL",
-        "Order": 6,
-        "Variants": [
-          {
-            "Name": "Default",
-            "DisplayName": "1"
-          },
-          {
-            "Name": "Min",
-            "DisplayName": "1"
-          },
-          {
-            "Name": "Max",
-            "DisplayName": "4"
-          }
-        ]
     "Bool": [
       {
         "Name": "SheriffEnabled",
