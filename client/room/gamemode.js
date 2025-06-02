@@ -5,7 +5,7 @@ import { Game, Players, Inventory, LeaderBoard, BuildBlocksSet, Teams, Damage, B
 const FRIENDLY_FIRE = GameMode.Parameters.GetBool("FriendlyFire");
 const IMPOSTOR_COUNT = GameMode.Parameters.GetInt("ImpostorCount") || 1;
 const SHERIFF_ENABLED = GameMode.Parameters.GetBool("SheriffEnabled");
-const PLAYERS_TO_START = GameMode.Parameters.GetInt("PlayersToStart") || 4;
+const PLAYERS_TO_START = GameMode.Parameters.GetInt("PlayersToStart") || 1;
 const TASKS_PER_PLAYER = GameMode.Parameters.GetInt("TasksPerPlayer") || 3;
 const KILL_COOLDOWN = GameMode.Parameters.GetInt("KillCooldown") || 30;
 const DISCUSSION_TIME = GameMode.Parameters.GetInt("DiscussionTime") || 90;
