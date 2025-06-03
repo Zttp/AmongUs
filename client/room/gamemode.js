@@ -499,12 +499,6 @@ function initChatCommands() {
 /aye - управлять ботом (предатель)
 /dead [msg] - чат для мертвых`;
         }
-        
-        else if (command === '/report') {
-            if (args.length < 2) return;
-            const bodyId = Number(args[1]);
-            reportBody(sender, bodyId);
-        }
 
         else if (command === '/meeting') {
             callEmergencyMeeting(sender);
@@ -640,7 +634,7 @@ function initGameMode() {
     initServerProperties();
     initServerTimer();
     setupLeaderboard();
-    
+    initChatCommands();
     setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
