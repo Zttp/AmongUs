@@ -503,10 +503,19 @@ function initGameMode() {
     // Создаем команды
     setupTeams();
     
+    // Инициализация сервера
+    initServerProperties();
+    
+    // Настройка лидерборда
+    setupLeaderboard();
+    
+    // Инициализация команд чата
+    initChatCommands();
+    
+    // Регистрация обработчиков событий
+    setupEventHandlers();
     
     
-    // Запускаем игру
-    setGameState(GameStates.WAITING);
     
     // Запускаем таймер раунда
     roundTimer.RestartLoop(1);
