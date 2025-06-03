@@ -428,10 +428,10 @@ function initGameMode() {
     setupLeaderboard();
     
     // Инициализация команд чата
-    
+    initChatCommands();
     
     // Регистрация обработчиков событий
-    setupEventHandlers();
+    
     
     // Запускаем игру
     setGameState(GameStates.WAITING);
