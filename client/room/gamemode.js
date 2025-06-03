@@ -3,10 +3,8 @@ import { Game, Players, Inventory, LeaderBoard, Teams, Damage, Ui, Properties, G
 import { BotsService } from 'pixel_combats/room/services/bots';
 
 // ========== КОНСТАНТЫ И НАСТРОЙКИ ==========
-const WAITING_TIME = 15;      // Ожидание игроков (сек)
-const DISCUSSION_TIME = 120;  // Время обсуждения (сек)
-const VOTING_TIME = 30;       // Время голосования (сек)
-const PLAY_TIME = 600;        // Время игры (сек)
+const WAITING_TIME = 10;      // Ожидание игроков (сек)
+const PLAY_TIME = 300;        // Время игры (сек)
 const END_TIME = 30;          // Время окончания (сек)
 
 // Цвета команд
@@ -17,8 +15,6 @@ const LOSERS_COLOR = new Color(0.3, 0.3, 0.3, 0);  // Серый
 const GameStates = {
     WAITING: "WaitingPlayers",
     PLAY: "PlayMode",
-    DISCUSSION: "Discussion",
-    VOTING: "Voting",
     END: "EndOfMatch"
 };
 
@@ -35,13 +31,10 @@ const gameMode = {
     impostorId: null,
     sheriffId: null,
     deadPlayers: new Set(),
-    reportedBodies: new Set(),
-    meetingCalled: false,
-    votes: new Map(),
     playerRoles: new Map(),
     bots: new Map(),
     adminId: "D411BD94CAE31F89",
-    sabotageActive: false
+    gameTimer: null
 };
 
 // Контексты
@@ -55,9 +48,8 @@ const botsService = BotsService.GetContext();
 
 // Инициализация сервера
 function initServerProperties() {
-    Props.Get('Time_State').Value = gameMode.state;
-    Props.Get('Meeting_Active').Value = false;
-    Props.Get('Votes_Total').Value = 0;
+    Props.Get('Game_State').Value = gameMode.state;
+    Props.Get('Time_Left').Value = PLAY_TIME;
 }
 
 // Создание команд
@@ -79,7 +71,7 @@ const { PlayersTeam, LosersTeam } = setupTeams();
 // Управление состоянием игры
 function setGameState(newState) {
     gameMode.state = newState;
-    Props.Get('Time_State').Value = newState;
+    Props.Get('Game_State').Value = newState;
     
     const mainTimer = Timers.GetContext().Get("Main");
     
@@ -96,20 +88,6 @@ function setGameState(newState) {
             Sp.Spawn();
             assignRoles();
             startGameTimer();
-            break;
-            
-        case GameStates.DISCUSSION:
-            Ui.GetContext().Hint.Value = "Обсуждение! Готовьтесь к голосованию!";
-            gameMode.meetingCalled = true;
-            gameMode.votes.clear();
-            Props.Get('Meeting_Active').Value = true;
-            mainTimer.Restart(DISCUSSION_TIME);
-            break;
-            
-        case GameStates.VOTING:
-            Ui.GetContext().Hint.Value = "Голосование! Используйте /vote [ID]";
-            Props.Get('Votes_Total').Value = 0;
-            mainTimer.Restart(VOTING_TIME);
             break;
             
         case GameStates.END:
@@ -129,17 +107,19 @@ function assignRoles() {
     const impostorIndex = Math.floor(Math.random() * players.length);
     gameMode.impostorId = players[impostorIndex].id;
     gameMode.playerRoles.set(gameMode.impostorId, PlayerRoles.IMPOSTOR);
-    Players.Get(gameMode.impostorId).Ui.Hint.Value = "ТЫ ПРЕДАТЕЛЬ! Убивай игроков, но будь осторожен!";
+    Players.Get(gameMode.impostorId).Ui.Hint.Value = "ТЫ ПРЕДАТЕЛЬ! Убивай игроков! Команды: /bot, /aye, /nay";
 
-    // Выбор шерифа
-    let sheriffIndex;
-    do {
-        sheriffIndex = Math.floor(Math.random() * players.length);
-    } while (sheriffIndex === impostorIndex);
-    
-    gameMode.sheriffId = players[sheriffIndex].id;
-    gameMode.playerRoles.set(gameMode.sheriffId, PlayerRoles.SHERIFF);
-    Players.Get(gameMode.sheriffId).Ui.Hint.Value = "ТЫ ШЕРИФ! Ты можешь убивать, но только предателя!";
+    // Выбор шерифа (если игроков достаточно)
+    if (players.length >= 3) {
+        let sheriffIndex;
+        do {
+            sheriffIndex = Math.floor(Math.random() * players.length);
+        } while (sheriffIndex === impostorIndex);
+        
+        gameMode.sheriffId = players[sheriffIndex].id;
+        gameMode.playerRoles.set(gameMode.sheriffId, PlayerRoles.SHERIFF);
+        Players.Get(gameMode.sheriffId).Ui.Hint.Value = "ТЫ ШЕРИФ! Ты можешь убивать предателя!";
+    }
 }
 
 // Обработка убийств
@@ -158,15 +138,7 @@ function handleKill(killer, victim) {
     // Предатель убивает
     if (killerRole === PlayerRoles.IMPOSTOR) {
         killPlayer(victim);
-        
-        // Проверка условий победы
-        const alivePlayers = PlayersTeam.Players.filter(p => 
-            !gameMode.deadPlayers.has(p.id) && p.id !== gameMode.impostorId
-        );
-        
-        if (alivePlayers.length <= 1) {
-            endRound('impostor');
-        }
+        checkWinConditions();
     }
 }
 
@@ -176,17 +148,32 @@ function killPlayer(player) {
     LosersTeam.Add(player);
     gameMode.deadPlayers.add(player.id);
     
-    // Отключение оружия и возможностей
+    // Отключение оружия
     player.inventory.Main.Value = false;
     player.inventory.Secondary.Value = false;
-    player.inventory.Build.Value = false;
     
-    // Создание "тела"
-    gameMode.reportedBodies.add(player.id);
-    
-    // "Зависание" - телепортация в специальную зону
+    // Телепортация в специальную зону
     player.SetPositionAndRotation(new Vector3(0, -100, 0), player.Rotation);
-    player.Ui.Hint.Value = "Вы мертвы! Используйте /dead для общения";
+    player.Ui.Hint.Value = "Вы мертвы!";
+}
+
+// Проверка условий победы
+function checkWinConditions() {
+    const alivePlayers = PlayersTeam.Players.filter(p => 
+        !gameMode.deadPlayers.has(p.id)
+    );
+    
+    // Если предатель убит
+    if (!alivePlayers.find(p => p.id === gameMode.impostorId)) {
+        endRound('crewmates');
+        return;
+    }
+    
+    // Если остался только предатель и 1 мирный
+    if (alivePlayers.length <= 2) {
+        endRound('impostor');
+        return;
+    }
 }
 
 // Система ботов
@@ -258,116 +245,70 @@ function initChatCommands() {
         const sender = Players.GetByRoomId(m.Sender);
         if (!sender) return;
 
-        // Мертвые игроки могут писать только в мертвый чат
-        if (gameMode.deadPlayers.has(sender.id) && !msg.startsWith('/dead')) {
-            return;
-        }
-
         const args = msg.split(' ');
         const command = args[0].toLowerCase();
 
         if (command === '/help') {
             sender.Ui.Hint.Value = `Доступные команды:
-/report [id] - сообщить о теле
-/meeting - экстренное собрание
-/sabotage - саботаж (предатель)
-/vote [id] - голосовать за изгнание
-/dead [msg] - чат для мертвых
 /bot [skin] [weapon] - создать бота (предатель)
 /aye [botId] - вселиться в бота (предатель)
-/nay [botId] - выйти из бота (предатель)`;
-        }
-        
-        else if (command === '/report') {
-            if (args.length < 2) return;
-            const bodyId = Number(args[1]);
-            if (gameMode.reportedBodies.has(bodyId) && !gameMode.meetingCalled) {
-                setGameState(GameStates.DISCUSSION);
-            }
-        }
-
-        else if (command === '/meeting') {
-            if (!gameMode.meetingCalled && gameMode.state === GameStates.PLAY) {
-                setGameState(GameStates.DISCUSSION);
-            }
-        }
-        
-        else if (command === '/sabotage') {
-            if (gameMode.playerRoles.get(sender.id) === PlayerRoles.IMPOSTOR &&
-                gameMode.state === GameStates.PLAY) {
-                    
-                gameMode.sabotageActive = true;
-                Ui.GetContext().Hint.Value = "САБОТАЖ! Системы отключены!";
-                sender.Ui.Hint.Value = "Саботаж активирован!";
-                
-                // Отключаем свет на 30 секунд
-                Timers.GetContext().Get("SabotageTimer").Restart(30, () => {
-                    gameMode.sabotageActive = false;
-                    Ui.GetContext().Hint.Value = "Системы восстановлены!";
-                });
-            }
-        }
-        
-        else if (command === '/vote') {
-            if (gameMode.state !== GameStates.VOTING) return;
-            if (args.length < 2) return;
-            
-            const targetId = Number(args[1]);
-            gameMode.votes.set(sender.id, targetId);
-            
-            const voteCount = [...gameMode.votes.values()]
-                .filter(id => id === targetId)
-                .length;
-                
-            sender.Ui.Hint.Value = `Ваш голос за ${targetId} учтен!`;
-            Props.Get('Votes_Total').Value = gameMode.votes.size;
-        }
-        
-        else if (command === '/dead') {
-            const deadMessage = msg.substring(6).trim();
-            Players.All.filter(p => gameMode.deadPlayers.has(p.id))
-                .forEach(p => {
-                    p.Ui.Hint.Value = `💀 ${sender.NickName}: ${deadMessage}`;
-                });
+/nay [botId] - выйти из бота (предатель)
+/vote [id] - проголосовать за изгнание`;
         }
         
         else if (command === '/bot') {
-            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) return;
+            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) {
+                sender.Ui.Hint.Value = "❌ Только для предателя!";
+                return;
+            }
             
             const skinId = args[1] ? parseInt(args[1]) : 0;
             const weaponId = args[2] ? parseInt(args[2]) : 1;
             
             const bot = createBot(sender, skinId, weaponId);
-            sender.Ui.Hint.Value = `Бот создан! ID: ${bot.Id}`;
+            sender.Ui.Hint.Value = `🤖 Бот создан! ID: ${bot.Id}`;
         }
         
         else if (command === '/aye') {
-            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) return;
+            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) {
+                sender.Ui.Hint.Value = "❌ Только для предателя!";
+                return;
+            }
             
             const botId = args[1] ? parseInt(args[1]) : [...gameMode.bots.keys()][0];
             if (possessBot(sender, botId)) {
-                sender.Ui.Hint.Value = "Вы вселились в бота!";
+                sender.Ui.Hint.Value = "👻 Вы вселились в бота!";
             } else {
-                sender.Ui.Hint.Value = "Ошибка вселения!";
+                sender.Ui.Hint.Value = "❌ Ошибка вселения!";
             }
         }
         
         else if (command === '/nay') {
-            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) return;
+            if (gameMode.playerRoles.get(sender.id) !== PlayerRoles.IMPOSTOR) {
+                sender.Ui.Hint.Value = "❌ Только для предателя!";
+                return;
+            }
             
             const botId = args[1] ? parseInt(args[1]) : [...gameMode.bots.keys()][0];
             if (unpossessBot(sender, botId)) {
-                sender.Ui.Hint.Value = "Вы вышли из бота!";
+                sender.Ui.Hint.Value = "👤 Вы вышли из бота!";
             } else {
-                sender.Ui.Hint.Value = "Ошибка выхода!";
+                sender.Ui.Hint.Value = "❌ Ошибка выхода!";
             }
         }
         
-        // Админские команды
-        else if (command === '/kick' && sender.id === gameMode.adminId) {
-            // Реализация кика
+        else if (command === '/vote') {
+            if (args.length < 2) return;
+            
+            const targetId = Number(args[1]);
+            const target = Players.Get(targetId);
+            if (!target) return;
+            
+            // Простое голосование - сразу убиваем
+            killPlayer(target);
+            sender.Ui.Hint.Value = `✅ Вы проголосовали против ${target.NickName}`;
+            checkWinConditions();
         }
-        // Другие админские команды...
     });
 }
 
@@ -375,32 +316,47 @@ function initChatCommands() {
 function setupLeaderboard() {
     LeaderBoard.PlayerLeaderBoardValues = [
         new DisplayValueHeader('IdInRoom', 'ID', 'ID'),
-        new DisplayValueHeader('Status', 'Статус', 'Статус'),
-        new DisplayValueHeader('Kills', 'Убийства', 'Убийства')
+        new DisplayValueHeader('Role', 'Роль', 'Роль'),
+        new DisplayValueHeader('Status', 'Статус', 'Статус')
     ];
 
     LeaderBoard.PlayersWeightGetter.Set(function(p) {
-        return p.Properties.Get('Kills').Value;
+        return p.id; // Сортируем по ID
     });
 }
 
 // ========== ОБРАБОТКА ИГРОКА ==========
 function initPlayer(player) {
-    player.Properties.Get('Kills').Value = 0;
-    player.Properties.Get('Deaths').Value = 0;
-    
     // Все игроки получают оружие
     player.inventory.Main.Value = true;
-    player.inventory.Secondary.Value = false;
     player.inventory.Melee.Value = true;
-    player.inventory.Build.Value = false;
     
     // Начальная команда
     PlayersTeam.Add(player);
     
     if (gameMode.state === GameStates.PLAY) {
-        player.Ui.Hint.Value = "Найдите предателя! Используйте /report для тел";
+        player.Ui.Hint.Value = "Найдите предателя!";
     }
+}
+
+// Таймер игры
+function startGameTimer() {
+    gameMode.gameTimer = Timers.GetContext().Get("GameTimer");
+    let timeLeft = PLAY_TIME;
+    
+    gameMode.gameTimer.OnTimer.Add(() => {
+        timeLeft--;
+        Props.Get('Time_Left').Value = timeLeft;
+        
+        if (timeLeft <= 0) {
+            endRound('impostor');
+            return;
+        }
+        
+        gameMode.gameTimer.RestartLoop(1);
+    });
+    
+    gameMode.gameTimer.RestartLoop(1);
 }
 
 // ========== ЗАВЕРШЕНИЕ РАУНДА ==========
@@ -440,35 +396,50 @@ function initGameMode() {
 
 // ========== ОСНОВНЫЕ ОБРАБОТЧИКИ ==========
 function setupEventHandlers() {
+    // При подключении игрока
     Players.OnPlayerConnected.Add(function(player) {
         initPlayer(player);
-        player.Ui.Hint.Value = 'Добро пожаловать в "Предательство"!';
+        player.Ui.Hint.Value = 'Добро пожаловать в "Предательство"! Напишите /help';
         
         if (Players.All.length >= 2 && gameMode.state === GameStates.WAITING) {
             setGameState(GameStates.PLAY);
         }
     });
     
+    // При смене команды
+    Teams.OnPlayerChangeTeam.Add(function(player) {
+        initPlayer(player);
+    });
+    
+    // При убийстве
     Damage.OnKill.Add(handleKill);
     
+    // При смерти
     Damage.OnDeath.Add(function(player) {
         player.Properties.Deaths.Value++;
     });
     
-    // Таймер игры
-    Timers.GetContext().Get("GameTimer").OnTimer.Add(function(t) {
-        if (gameMode.state === GameStates.PLAY) {
-            const alivePlayers = PlayersTeam.Players.filter(p => 
-                !gameMode.deadPlayers.has(p.id)
-            );
-            
-            // Проверка условий победы
-            if (alivePlayers.length <= 1 && gameMode.impostorId) {
-                const impostor = Players.Get(gameMode.impostorId);
-                if (impostor && impostor.Team.Name === 'Players') {
-                    endRound('impostor');
+    // Основной таймер
+    Timers.GetContext().Get("Main").OnTimer.Add(function() {
+        switch(gameMode.state) {
+            case GameStates.WAITING:
+                if (Players.All.length >= 2) {
+                    setGameState(GameStates.PLAY);
                 }
-            }
+                break;
+                
+            case GameStates.END:
+                // Перезапуск игры
+                gameMode.impostorId = null;
+                gameMode.sheriffId = null;
+                gameMode.deadPlayers.clear();
+                gameMode.playerRoles.clear();
+                gameMode.bots.clear();
+                
+                // Переместить всех игроков в основную команду
+                Players.All.forEach(p => PlayersTeam.Add(p));
+                setGameState(GameStates.WAITING);
+                break;
         }
     });
 }
