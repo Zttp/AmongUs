@@ -96,6 +96,7 @@ function setGameState(newState) {
     
     switch(newState) {
         case GameStates.WAITING:
+            stateProp.Value = WAITING_TIME;
             Ui.GetContext().Hint.Value = `Ожидание игроков (минимум ${PLAYERS_TO_START})`;
             Sp.Enable = false;
             mainTimer.Restart(WAITING_TIME);
@@ -109,6 +110,7 @@ function setGameState(newState) {
             break;
             
         case GameStates.TASKS:
+            stateProp.Value = GAME_TIME;
             Ui.GetContext().Hint.Value = "Выполняйте задания!";
             Inv.Main.Value = false;
             Inv.Secondary.Value = false;
@@ -121,17 +123,20 @@ function setGameState(newState) {
             break;
             
         case GameStates.DISCUSSION:
+            stateProp.Value = DISCUSSION_TIME;
             Ui.GetContext().Hint.Value = "Обсуждение! Говорите в чате!";
             freezeAllPlayers();
             mainTimer.Restart(DISCUSSION_TIME);
             break;
             
         case GameStates.VOTING:
+            stateProp.Value = VOTING_TIME;
             Ui.GetContext().Hint.Value = "Голосование! Используйте /vote [id]";
             mainTimer.Restart(VOTING_TIME);
             break;
             
         case GameStates.END:
+            stateProp.Value = END_TIME;
             Ui.GetContext().Hint.Value = "Игра окончена!";
             Sp.Enable = false;
             mainTimer.Restart(END_TIME);
@@ -519,9 +524,6 @@ function setupEventHandlers() {
         }
     });
     
-    Damage.OnKill.Add(function(killer, victim) {
-        handleKill(killer, victim);
-    });
     
     Damage.OnDeath.Add(function(player) {
         player.Properties.Get('Alive').Value = false;
