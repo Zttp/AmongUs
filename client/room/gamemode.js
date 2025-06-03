@@ -428,7 +428,7 @@ function initGameMode() {
     setupLeaderboard();
     
     // Инициализация команд чата
-    initChatCommands();
+    
     
     // Регистрация обработчиков событий
     setupEventHandlers();
