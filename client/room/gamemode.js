@@ -38,8 +38,6 @@ const gameMode = {
     traitor: null,
     sheriff: null,
     deadPlayers: new Set(),
-    bodies: new Map(),
-    bodiesReported: new Set(),
     emergencyMeetings: 0,
     maxEmergencyMeetings: 2,
     votes: new Map(),
@@ -103,7 +101,7 @@ function setupTeams() {
 
     // Настройки спавнов
     PlayersTeam.Spawns.SpawnPointsGroups.Add(1);
-    LosersTeam.Spawns.SpawnPointsGroups.Add(2);
+    LosersTeam.Spawns.Spawn = false; // Мертвые не спавнятся
 
     return { PlayersTeam, LosersTeam };
 }
@@ -280,12 +278,6 @@ function handleKill(killer, victim) {
     // Предатель или шериф (убивающий предателя) убивает
     killPlayer(victim);
     
-    // Создаем тело для репорта
-    gameMode.bodies.set(victim.id, {
-        position: victim.Position,
-        time: Date.now()
-    });
-    
     // Проверяем условия победы
     checkWinConditions();
 }
@@ -306,26 +298,27 @@ function killPlayer(player) {
     gameMode.freezeTimers.set(player.id, freezeTimer);
 }
 
-// Система отчетов о телах
-function reportBody(reporter, bodyId) {
-    if (gameMode.bodiesReported.has(bodyId)) return;
-    
-    gameMode.bodiesReported.add(bodyId);
-    room.Ui.Hint.Value = `${reporter.NickName} сообщил о теле! Начинается обсуждение!`;
-    setGameState(GameStates.DISCUSSION);
-}
-
 // Система экстренных собраний
 function callEmergencyMeeting(caller) {
-    if (gameMode.meetingCalled || gameMode.emergencyMeetings >= gameMode.maxEmergencyMeetings) {
-        caller.Ui.Hint.Value = "Собрание уже идет или лимит исчерпан!";
+    if (gameMode.state === GameStates.DISCUSSION || gameMode.state === GameStates.VOTING) {
+        caller.Ui.Hint.Value = "Собрание уже идет!";
+        return;
+    }
+    
+    if (gameMode.emergencyMeetings >= gameMode.maxEmergencyMeetings) {
+        caller.Ui.Hint.Value = "Лимит собраний исчерпан!";
+        return;
+    }
+    
+    if (gameMode.deadPlayers.has(caller.id)) {
+        caller.Ui.Hint.Value = "Мертвые не могут созывать собрания!";
         return;
     }
     
     gameMode.emergencyMeetings++;
     gameMode.meetingCalled = true;
     Props.Get('Emergency_Meetings').Value = gameMode.maxEmergencyMeetings - gameMode.emergencyMeetings;
-    room.Ui.Hint.Value = `${caller.NickName} созывает экстренное собрание!`;
+    room.Ui.Hint.Value = ` ${caller.NickName} созывает экстренное собрание!`;
     setGameState(GameStates.DISCUSSION);
 }
 
@@ -348,7 +341,7 @@ function vote(voter, suspectId) {
     }
     
     gameMode.votes.set(voter.id, suspectId);
-    voter.Ui.Hint.Value = `Ваш голос за ${suspect.NickName} учтен!`;
+    voter.Ui.Hint.Value = `✅ Ваш голос за ${suspect.NickName} учтен!`;
     
     // Проверяем, проголосовали ли все живые
     const alivePlayers = Players.All.filter(p => !gameMode.deadPlayers.has(p.id));
@@ -378,18 +371,18 @@ function finishVoting() {
     
     if (ejectedPlayerId && maxVotes > 0) {
         const ejectedPlayer = Players.Get(ejectedPlayerId);
-        ejectedPlayer.Ui.Hint.Value = "Вас изгнали!";
+        ejectedPlayer.Ui.Hint.Value = "❌ Вас изгнали!";
         killPlayer(ejectedPlayer);
         
         if (ejectedPlayerId === gameMode.traitor) {
-            room.Ui.Hint.Value = `${ejectedPlayer.NickName} был предателем! Игроки побеждают!`;
+            room.Ui.Hint.Value = `🎉 ${ejectedPlayer.NickName} был предателем! Игроки побеждают!`;
             endRound('Игроки');
         } else {
-            room.Ui.Hint.Value = `${ejectedPlayer.NickName} был невиновен!`;
+            room.Ui.Hint.Value = `😢 ${ejectedPlayer.NickName} был невиновен!`;
             checkWinConditions();
         }
     } else {
-        room.Ui.Hint.Value = "Никто не был изгнан!";
+        room.Ui.Hint.Value = "🤷‍♂️ Никто не был изгнан!";
     }
     
     // Возвращаемся к игре
@@ -401,12 +394,12 @@ function finishVoting() {
 // Система ботов для предателя
 function spawnBot(player, skinId, weaponId) {
     if (player.id !== gameMode.traitor) {
-        player.Ui.Hint.Value = "Только предатель может создавать ботов!";
+        player.Ui.Hint.Value = "❌ Только предатель может создавать ботов!";
         return;
     }
     
     if (gameMode.playerBots.has(player.id)) {
-        player.Ui.Hint.Value = "Вы уже создали бота!";
+        player.Ui.Hint.Value = "❌ Вы уже создали бота!";
         return;
     }
     
@@ -426,18 +419,18 @@ function spawnBot(player, skinId, weaponId) {
 // Вселение в бота
 function possessBot(player) {
     if (player.id !== gameMode.traitor) {
-        player.Ui.Hint.Value = "Только предатель может управлять ботами!";
+        player.Ui.Hint.Value = "❌ Только предатель может управлять ботами!";
         return;
     }
     
     const bot = gameMode.playerBots.get(player.id);
     if (!bot) {
-        player.Ui.Hint.Value = "Сначала создайте бота!";
+        player.Ui.Hint.Value = "❌ Сначала создайте бота!";
         return;
     }
     
     if (gameMode.playerInBot.has(player.id)) {
-        player.Ui.Hint.Value = "Вы уже управляете ботом!";
+        player.Ui.Hint.Value = "❌ Вы уже управляете ботом!";
         return;
     }
     
@@ -463,18 +456,6 @@ function possessBot(player) {
     player.Ui.Hint.Value = "Вы управляете ботом!";
 }
 
-// Вспомогательные функции
-function freezeAllPlayers() {
-    Players.All.forEach(player => {
-        const freezeTimer = Timers.GetContext(player).Get('FreezeTimer');
-        freezeTimer.OnTimer.Add(() => {
-            player.SetPositionAndRotation(player.Position, player.Rotation);
-        });
-        freezeTimer.RestartLoop(0.1);
-        gameMode.freezeTimers.set(player.id, freezeTimer);
-    });
-}
-
 // Команды чата
 function initChatCommands() {
     Chat.OnMessage.Add(function(m) {
@@ -491,8 +472,7 @@ function initChatCommands() {
         const command = args[0].toLowerCase();
 
         if (command === '/help') {
-            sender.Ui.Hint.Value = `🚀 Доступные команды:
-/report - сообщить о ближайшем теле
+            sender.Ui.Hint.Value = `Доступные команды:
 /meeting - экстренное собрание
 /vote [id] - голосовать за изгнание
 /bot [skin] [weapon] - создать бота (предатель)
@@ -502,28 +482,6 @@ function initChatCommands() {
 /dead [msg] - чат для мертвых
 /suicide - самоубийство (админ)
 /revive [id] - воскресить игрока (админ)`;
-        }
-        
-        else if (command === '/report') {
-            // Поиск ближайшего тела для репорта
-            let closestBody = null;
-            let minDistance = Infinity;
-            
-            gameMode.bodies.forEach((body, playerId) => {
-                if (gameMode.bodiesReported.has(playerId)) return;
-                
-                const distance = sender.Position.sub(body.position).length;
-                if (distance < minDistance && distance < 5) { // Проверка радиуса 5 блоков
-                    minDistance = distance;
-                    closestBody = { playerId, position: body.position };
-                }
-            });
-            
-            if (closestBody) {
-                reportBody(sender, closestBody.playerId);
-            } else {
-                sender.Ui.Hint.Value = "Рядом нет нерепортнутых тел!";
-            }
         }
 
         else if (command === '/meeting') {
@@ -541,11 +499,6 @@ function initChatCommands() {
         }
         
         else if (command === '/bot') {
-            if (sender.id !== gameMode.traitor) {
-                sender.Ui.Hint.Value = "❌ Только предатель может создавать ботов!";
-                return;
-            }
-            
             if (args.length < 3) {
                 sender.Ui.Hint.Value = "Использование: /bot [skin] [weapon]";
                 return;
@@ -554,7 +507,7 @@ function initChatCommands() {
             const skinId = parseInt(args[1]);
             const weaponId = parseInt(args[2]);
             
-            if (isNaN(skinId) {
+            if (isNaN(skinId)) {
                 sender.Ui.Hint.Value = "Некорректный ID скина!";
                 return;
             }
@@ -578,19 +531,19 @@ function initChatCommands() {
             );
             
             if (alivePlayers.length > 0) {
-                let list = "👥 Живые игроки:\n";
+                let list = "игроки:\n";
                 alivePlayers.forEach((player, index) => {
                     list += `${index+1}. ${player.NickName} (ID: ${player.RoomId})\n`;
                 });
                 sender.Ui.Hint.Value = list;
             } else {
-                sender.Ui.Hint.Value = "Нет живых игроков!";
+                sender.Ui.Hint.Value = "Нет играющих игроков!";
             }
         }
         
         else if (command === '/whoami') {
             if (sender.id === gameMode.traitor) {
-                sender.Ui.Hint.Value = "Ты ПРЕДАТЕЛЬ! Убей всех, но не попадись!";
+                sender.Ui.Hint.Value = "Ты ПРЕДАТЕЛЬ! Убей их всех но не попадись!";
             } else if (sender.id === gameMode.sheriff) {
                 sender.Ui.Hint.Value = "Ты ШЕРИФ! Найди и убей предателя!";
             } else {
@@ -604,7 +557,7 @@ function initChatCommands() {
                 // Отправляем сообщение в мертвый чат
                 Players.All.forEach(player => {
                     if (gameMode.deadPlayers.has(player.id)) {
-                        player.Ui.Hint.Value = `💀 [МЕРТВЫЕ] ${sender.NickName}: ${message}`;
+                        player.Ui.Hint.Value = `[П] ${sender.NickName}: ${message}`;
                     }
                 });
             }
@@ -613,7 +566,7 @@ function initChatCommands() {
         // Админ-команды
         else if (command === '/suicide') {
             if (sender.id !== gameMode.adminId) {
-                sender.Ui.Hint.Value = "❌ Недостаточно прав!";
+                sender.Ui.Hint.Value = "Недостаточно прав!";
                 return;
             }
             killPlayer(sender);
@@ -622,7 +575,7 @@ function initChatCommands() {
         
         else if (command === '/revive') {
             if (sender.id !== gameMode.adminId) {
-                sender.Ui.Hint.Value = "❌ Недостаточно прав!";
+                sender.Ui.Hint.Value = "Недостаточно прав!";
                 return;
             }
             
@@ -646,10 +599,10 @@ function initChatCommands() {
                     gameMode.freezeTimers.delete(player.id);
                 }
                 
-                sender.Ui.Hint.Value = `✅ ${player.NickName} воскрешен!`;
+                sender.Ui.Hint.Value = `${player.NickName} воскрешен!`;
                 player.Ui.Hint.Value = "Администратор воскресил вас!";
             } else {
-                sender.Ui.Hint.Value = "Игрок не найден или не мертв!";
+                sender.Ui.Hint.Value = "Игрок не найден или еще играет!";
             }
         }
     });
@@ -676,7 +629,7 @@ function setupEventHandlers() {
             player.Team = LosersTeam;
             gameMode.deadPlayers.add(player.id);
             player.contextedProperties.SkinType.Value = 2;
-            player.Ui.Hint.Value = "Вы присоединились к уже идущей игре как мертвый";
+            player.Ui.Hint.Value = "Вы присоединились к уже идущей игре";
             killPlayer(player);
             return;
         }
@@ -751,7 +704,7 @@ function initGameMode() {
     initServerProperties();
     initServerTimer();
     setupLeaderboard();
-    
+    initChatCommands();
     setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
