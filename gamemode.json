@@ -1,5 +1,5 @@
 {
-  "Name": "Betrayal",
+  "Name": "Предательство",
   "Description": "Режим предательства. Один игрок - предатель, остальные должны его вычислить.",
   "StartClientVersion": 573,
   "MapFilter": {
@@ -19,31 +19,31 @@
     "Bool": [
       {
         "Name": "MapRotation",
-        "DisplayName": "GmParams/MapRotation",
+        "DisplayName": "Смена карт",
         "Default": true,
         "Order": 1
       },
       {
         "Name": "EnableSheriff",
-        "DisplayName": "GmParams/EnableSheriff",
+        "DisplayName": "Включить роль шерифа",
         "Default": true,
         "Order": 2
       },
       {
         "Name": "EnableMedic",
-        "DisplayName": "GmParams/EnableMedic",
+        "DisplayName": "Включить роль медика",
         "Default": true,
         "Order": 3
       },
       {
         "Name": "EnableEngineer",
-        "DisplayName": "GmParams/EnableEngineer",
+        "DisplayName": "Включить роль инженера",
         "Default": true,
         "Order": 4
       },
       {
         "Name": "FreezeOnDeath",
-        "DisplayName": "GmParams/FreezeOnDeath",
+        "DisplayName": "Кик игрока при его убийстве",
         "Default": true,
         "Order": 5
       }
@@ -51,69 +51,69 @@
     "Dropdown": [
       {
         "Name": "default_game_mode_length",
-        "DisplayName": "GmParams/Length",
+        "DisplayName": "Длительность матча",
         "Default": "Length_M",
         "Order": 6,
         "Variants": [
           {
             "Name": "Length_S",
-            "DisplayName": "GmParams/Length_S"
+            "DisplayName": "Обычная"
           },
           {
             "Name": "Length_M",
-            "DisplayName": "GmParams/Length_M"
+            "DisplayName": "Маленькая"
           },
           {
             "Name": "Length_L",
-            "DisplayName": "GmParams/Length_L"
+            "DisplayName": "Большая"
           }
         ]
       },
       {
         "Name": "MinPlayers",
-        "DisplayName": "GmParams/MinPlayers",
+        "DisplayName": "Количество игроков для старта",
         "Default": "Min_1",
         "Order": 7,
         "Variants": [
           {
             "Name": "Min_1",
-            "DisplayName": "GmParams/Min_1"
+            "DisplayName": "1 Игрок"
           },
           {
             "Name": "Min_2",
-            "DisplayName": "GmParams/Min_2"
+            "DisplayName": "2 Игрока"
           },
           {
             "Name": "Min_4",
-            "DisplayName": "GmParams/Min_4"
+            "DisplayName": "4 Игрока"
           },
           {
             "Name": "Min_6",
-            "DisplayName": "GmParams/Min_6"
+            "DisplayName": "6 Игроков"
           },
           {
             "Name": "Min_8",
-            "DisplayName": "GmParams/Min_8"
+            "DisplayName": "8 Игроков"
           }
         ]
       },
       {
         "Name": "ImpostersCount",
-        "DisplayName": "GmParams/ImpostersCount",
+        "DisplayName": "Количество предателей в матче",
         "Default": "Imp_1",
         "Order": 8,
         "Variants": [
           {
             "Name": "Imp_1",
-            "DisplayName": "GmParams/Imp_1"
+            "DisplayName": "1 Предатель"
           },
           {
             "Name": "Imp_2",
-            "DisplayName": "GmParams/Imp_2"
+            "DisplayName": "2 Предателя"
           },
           {
             "Name": "Imp_3",
-            "DisplayName": "GmParams/Imp_3"
+            "DisplayName": "3 Предателя"
           }
         ]
       }
