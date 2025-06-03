@@ -694,7 +694,7 @@ function initGameMode() {
     initServerTimer();
     setupLeaderboard();
     
-    setupEventHandlers();
+    
     setGameState(GameStates.WAITING);
 }
 
