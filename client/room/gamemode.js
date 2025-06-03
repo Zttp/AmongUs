@@ -640,7 +640,7 @@ function initGameMode() {
     initServerProperties();
     initServerTimer();
     setupLeaderboard();
-    initChatCommands();
+    
     setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
