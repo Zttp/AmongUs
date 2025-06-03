@@ -1,5 +1,5 @@
 {
-  "Name": "Предательство",
+  "Name": "Betrayal",
   "Description": "Режим предательства. Один игрок - предатель, остальные должны его вычислить.",
   "StartClientVersion": 573,
   "MapFilter": {
@@ -68,24 +68,54 @@
             "DisplayName": "GmParams/Length_L"
           }
         ]
-      }
-    ],
-    "Number": [
+      },
       {
         "Name": "MinPlayers",
         "DisplayName": "GmParams/MinPlayers",
-        "Default": 1,
-        "Min": 1,
-        "Max": 16,
-        "Order": 7
+        "Default": "Min_1",
+        "Order": 7,
+        "Variants": [
+          {
+            "Name": "Min_1",
+            "DisplayName": "GmParams/Min_1"
+          },
+          {
+            "Name": "Min_2",
+            "DisplayName": "GmParams/Min_2"
+          },
+          {
+            "Name": "Min_4",
+            "DisplayName": "GmParams/Min_4"
+          },
+          {
+            "Name": "Min_6",
+            "DisplayName": "GmParams/Min_6"
+          },
+          {
+            "Name": "Min_8",
+            "DisplayName": "GmParams/Min_8"
+          }
+        ]
       },
       {
         "Name": "ImpostersCount",
         "DisplayName": "GmParams/ImpostersCount",
-        "Default": 1,
-        "Min": 1,
-        "Max": 3,
-        "Order": 8
+        "Default": "Imp_1",
+        "Order": 8,
+        "Variants": [
+          {
+            "Name": "Imp_1",
+            "DisplayName": "GmParams/Imp_1"
+          },
+          {
+            "Name": "Imp_2",
+            "DisplayName": "GmParams/Imp_2"
+          },
+          {
+            "Name": "Imp_3",
+            "DisplayName": "GmParams/Imp_3"
+          }
+        ]
       }
     ]
   }
