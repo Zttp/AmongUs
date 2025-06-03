@@ -192,14 +192,14 @@ function checkWinConditions() {
 
 // Окончание раунда
 function endRound(winner) {
-    let room.Ui.Hint.Value = "";
+    let message = "";
     
     if (winner === 'Предатель') {
-        room.Ui.Hint.Value = "🔪 Предатель побеждает!";
+        message = "🔪 Предатель побеждает!";
         const traitor = Players.Get(gameMode.traitor);
         if (traitor) traitor.Properties.Scores.Value += 10000;
     } else {
-        room.Ui.Hint.Value = "🎉 Игроки побеждают!";
+        message = "🎉 Игроки побеждают!";
         Players.All.forEach(player => {
             if (!gameMode.deadPlayers.has(player.id)) {
                 player.Properties.Scores.Value += 5000;
