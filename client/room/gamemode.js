@@ -26,7 +26,6 @@ const Inv = Inventory.GetContext();
 const Sp = Spawns.GetContext();
 const Dmg = Damage.GetContext();
 const Props = Properties.GetContext();
-const stateProp = Properties.GetContext().Get("State");
 
 // Состояния игры
 const GameStates = {
@@ -97,14 +96,12 @@ function setGameState(newState) {
     
     switch(newState) {
         case GameStates.WAITING:
-            stateProp.Value = WAITING;
             Ui.GetContext().Hint.Value = `Ожидание игроков (минимум ${PLAYERS_TO_START})`;
             Sp.Enable = false;
             mainTimer.Restart(WAITING_TIME);
             break;
             
         case GameStates.STARTING:
-            stateProp.Value = STARTING;
             Ui.GetContext().Hint.Value = "Подготовка к запуску...";
             assignRoles();
             generateTasks();
@@ -112,7 +109,6 @@ function setGameState(newState) {
             break;
             
         case GameStates.TASKS:
-            stateProp.Value = TASKS;
             Ui.GetContext().Hint.Value = "Выполняйте задания!";
             Inv.Main.Value = false;
             Inv.Secondary.Value = false;
@@ -125,20 +121,17 @@ function setGameState(newState) {
             break;
             
         case GameStates.DISCUSSION:
-            stateProp.Value = DISCUSSION;
             Ui.GetContext().Hint.Value = "Обсуждение! Говорите в чате!";
             freezeAllPlayers();
             mainTimer.Restart(DISCUSSION_TIME);
             break;
             
         case GameStates.VOTING:
-            stateProp.Value = VOTING;
             Ui.GetContext().Hint.Value = "Голосование! Используйте /vote [id]";
             mainTimer.Restart(VOTING_TIME);
             break;
             
         case GameStates.END:
-            stateProp.Value = END;
             Ui.GetContext().Hint.Value = "Игра окончена!";
             Sp.Enable = false;
             mainTimer.Restart(END_TIME);
@@ -184,6 +177,103 @@ function assignRoles() {
         }
     });
 }
+
+// Обработчик запроса на смену команды
+Teams.OnRequestJoinTeam.Add(function(player, team) {
+    // Запрещаем смену команды во время игры (кроме перехода в призраки)
+    if (gameMode.state !== GameStates.WAITING && 
+        gameMode.state !== GameStates.STARTING && 
+        team.Name !== 'Ghosts') {
+        player.Ui.Hint.Value = "Нельзя менять команду во время игры!";
+        return false; // Отменяем запрос
+    }
+    
+    // Проверяем, не пытается ли мертвый игрок вернуться в игру
+    if (gameMode.deadPlayers.has(player.id) {
+        player.Ui.Hint.Value = "Вы мертвы и не можете вернуться в игру!";
+        return false;
+    }
+    
+    // Разрешаем присоединение только к команде экипажа в лобби
+    if (gameMode.state === GameStates.WAITING && team.Name === 'Crew') {
+        team.Add(player);
+        return true;
+    }
+    
+    // Разрешаем переход в призраки при убийстве
+    if (team.Name === 'Ghosts') {
+        team.Add(player);
+        return true;
+    }
+    
+    return false;
+});
+
+// Обработчик смены команды
+Teams.OnPlayerChangeTeam.Add(function(player) {
+    // Инициализируем игрока при смене команды
+    initPlayer(player);
+    
+    // Если игрок стал призраком
+    if (player.Team.Name === 'Ghosts') {
+        // Устанавливаем скин призрака
+        player.contextedProperties.SkinType.Value = 4;
+        player.Properties.Get('Alive').Value = false;
+        
+        // Отключаем оружие
+        player.inventory.Main.Value = false;
+        player.inventory.Secondary.Value = false;
+        player.inventory.Melee.Value = false;
+        
+        // Сообщение для игрока
+        player.Ui.Hint.Value = "Вы стали призраком! Используйте /dead для общения.";
+        
+        // Включаем возможность летать (если есть такая функция)
+        if (player.contextedProperties.Flying) {
+            player.contextedProperties.Flying.Value = true;
+        }
+    } 
+    // Если игрок в команде экипажа
+    else if (player.Team.Name === 'Crew') {
+        // Устанавливаем стандартный скин
+        player.contextedProperties.SkinType.Value = 0;
+        player.Properties.Get('Alive').Value = true;
+        
+        // Выдаем базовое оружие (нож)
+        player.inventory.Melee.Value = true;
+        
+        // Сообщение в зависимости от роли
+        const role = gameMode.playerRoles.get(player.id);
+        if (role === "Предатель") {
+            player.Ui.Hint.Value = "ТЫ ПРЕДАТЕЛЬ! Убивай экипаж и саботируй системы!";
+        } else if (role === "Шериф") {
+            player.Ui.Hint.Value = "ТЫ ШЕРИФ! Ищи предателей и защищай экипаж!";
+        } else {
+            player.Ui.Hint.Value = "ТЫ ЧЛЕН ЭКИПАЖА! Выполняй задания и выявляй предателей!";
+        }
+    }
+    
+    // Спавним игрока, если игра уже началась
+    if (gameMode.state !== GameStates.WAITING && gameMode.state !== GameStates.STARTING) {
+        player.Spawns.Spawn();
+    }
+});
+
+// Обработчик спавна игрока
+Spawns.OnPlayerSpawn.Add(function(player) {
+    // Если игрок - призрак, телепортируем его в специальную зону
+    if (player.Team.Name === 'Ghosts') {
+        player.SetPositionAndRotation(
+            new Vector3(0, 50, 0), // Координаты зоны призраков
+            player.Rotation
+        );
+    }
+    // Для живых игроков - стандартный спавн
+    else if (player.Team.Name === 'Crew') {
+        // Можно добавить дополнительные проверки
+        player.Ui.Hint.Value = "Игра началась! Выполняйте задания!";
+    }
+});
 
 // Генерация заданий
 function generateTasks() {
