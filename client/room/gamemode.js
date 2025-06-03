@@ -551,17 +551,6 @@ function initChatCommands() {
             }
         }
         
-        else if (command === '/dead') {
-            const message = msg.substring(6).trim();
-            if (message) {
-                // Отправляем сообщение в мертвый чат
-                Players.All.forEach(player => {
-                    if (gameMode.deadPlayers.has(player.id)) {
-                        player.Ui.Hint.Value = `[П] ${sender.NickName}: ${message}`;
-                    }
-                });
-            }
-        }
         
         // Админ-команды
         else if (command === '/suicide') {
