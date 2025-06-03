@@ -106,7 +106,7 @@ function setGameState(newState) {
     
     switch(newState) {
         case GameStates.WAITING:
-            Ui.GetContext().Hint.Value = "🕒 Ожидание игроков...";
+            Ui.GetContext().Hint.Value = "Ожидание игроков...";
             Sp.Enable = false;
             mainTimer.Restart(WAITING_TIME);
             break;
@@ -192,14 +192,14 @@ function checkWinConditions() {
 
 // Окончание раунда
 function endRound(winner) {
-    let message = "";
+    let room.Ui.Hint.Value = "";
     
     if (winner === 'Предатель') {
-        message = "🔪 Предатель побеждает!";
+        room.Ui.Hint.Value = "🔪 Предатель побеждает!";
         const traitor = Players.Get(gameMode.traitor);
         if (traitor) traitor.Properties.Scores.Value += 10000;
     } else {
-        message = "🎉 Игроки побеждают!";
+        room.Ui.Hint.Value = "🎉 Игроки побеждают!";
         Players.All.forEach(player => {
             if (!gameMode.deadPlayers.has(player.id)) {
                 player.Properties.Scores.Value += 5000;
@@ -243,7 +243,7 @@ function killPlayer(player) {
     player.Team = LosersTeam;
     gameMode.deadPlayers.add(player.id);
     player.contextedProperties.SkinType.Value = 2;
-    player.Ui.Hint.Value = "💀 Вы мертвы! Используйте /dead [сообщение] для чата";
+    player.Ui.Hint.Value = "Вас убили! Используйте /dead [сообщение] для чата";
     
     // Запускаем цикл зависания для жертвы
     const freezeTimer = Timers.GetContext(player).Get('DeathFreeze');
@@ -536,8 +536,7 @@ function initGameMode() {
     Dmg.FriendlyFire.Value = false;
     BreackGraph.OnlyPlayerBlocksDmg = true;
     
-    initServerProperties();
-    initServerTimer();
+    
     
     setGameState(GameStates.WAITING);
 }
