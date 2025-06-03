@@ -39,6 +39,9 @@ const gameMode = {
     adminId: "D411BD94CAE31F89"
 };
 
+// Свойство для состояния игры
+const stateProp = Properties.GetContext().Get("State");
+
 // Инициализация сервера
 function initServerProperties() {
     Props.Get('Time_Hours').Value = 0;
@@ -48,11 +51,14 @@ function initServerProperties() {
     Props.Get('Players_WereMax').Value = Players.All.length;
     Props.Get('Time_FixedString').Value = '00:00:00';
     Props.Get('Round_Time').Value = GAME_TIME;
-    Props.Get('Game_State').Value = gameMode.state;
+    stateProp.Value = gameMode.state;
 }
 
 // Создание команд
 function setupTeams() {
+    // Очищаем существующие команды
+    Teams.All.forEach(team => Teams.Remove(team.Name));
+    
     Teams.Add('Players', 'Игроки', playersColor);
     Teams.Add('Losers', 'Проигравшие', losersColor);
 
@@ -69,7 +75,7 @@ function setupTeams() {
 // Управление состоянием игры
 function setGameState(newState) {
     gameMode.state = newState;
-    Props.Get('Game_State').Value = newState;
+    stateProp.Value = newState;
     
     switch(newState) {
         case GameStates.WAITING:
@@ -88,7 +94,6 @@ function setGameState(newState) {
             Sp.Enable = true;
             Sp.Spawn();
             assignRoles();
-            roundTimer.RestartLoop(1); // Запускаем таймер раунда
             break;
             
         case GameStates.END:
@@ -129,6 +134,8 @@ function assignRoles() {
             player.contextedProperties.SkinType.Value = 0;
         }
     });
+    
+    room.Ui.Hint.Value = "Игра началась! Найдите предателя!";
 }
 
 // Проверка условий победы
@@ -221,65 +228,6 @@ function killPlayer(player) {
     gameMode.freezeTimers.set(player.id, freezeTimer);
 }
 
-// Система ботов для предателя
-function spawnBot(player, skinId, weaponId) {
-    if (player.id !== gameMode.traitor) {
-        player.Ui.Hint.Value = "🔒 Только предатель может создавать ботов!";
-        return;
-    }
-    
-    if (gameMode.playerBots.has(player.id)) {
-        player.Ui.Hint.Value = "🚫 Вы уже создали бота!";
-        return;
-    }
-    
-    const botData = new Bots.HumanBotSpawnData();
-    botData.Position = player.Position;
-    botData.Rotation = player.Rotation;
-    botData.SkinId = skinId;
-    botData.WeaponId = weaponId;
-    
-    const bot = Bots.CreateHuman(botData);
-    if (!bot) return;
-    
-    gameMode.playerBots.set(player.id, bot);
-    player.Ui.Hint.Value = "🤖 Бот создан! Используйте /aye для управления им";
-}
-
-// Вселение в бота
-function possessBot(player) {
-    if (player.id !== gameMode.traitor) {
-        player.Ui.Hint.Value = "🔒 Только предатель может управлять ботами!";
-        return;
-    }
-    
-    const bot = gameMode.playerBots.get(player.id);
-    if (!bot) {
-        player.Ui.Hint.Value = "🚫 Сначала создайте бота!";
-        return;
-    }
-    
-    if (gameMode.playerInBot.has(player.id)) {
-        player.Ui.Hint.Value = "🚫 Вы уже управляете ботом!";
-        return;
-    }
-    
-    // Телепортируем игрока под карту
-    player.SetPositionAndRotation(new Vector3(0, -1000, 0), player.Rotation);
-    
-    // Настраиваем управление ботом
-    const controlTimer = Timers.GetContext(player).Get('BotControl');
-    controlTimer.OnTimer.Add(() => {
-        if (bot.Alive) {
-            bot.SetPositionAndDirection(player.Position, player.LookDirection);
-        }
-    });
-    controlTimer.RestartLoop(0.1);
-    
-    gameMode.playerInBot.set(player.id, bot);
-    player.Ui.Hint.Value = "👻 Вы управляете ботом!";
-}
-
 // Команды чата
 function initChatCommands() {
     Chat.OnMessage.Add(function(m) {
@@ -297,39 +245,11 @@ function initChatCommands() {
 
         if (command === '/help') {
             sender.Ui.Hint.Value = `📜 Доступные команды:
-/bot [skin] [weapon] - создать бота (предатель)
-/aye - управлять ботом (предатель)
 /players - список живых игроков
 /whoami - узнать свою роль
 /dead [msg] - чат для мертвых
 /suicide - самоубийство (админ)
 /revive [id] - воскресить игрока (админ)`;
-        }
-        
-        else if (command === '/bot') {
-            if (args.length < 3) {
-                sender.Ui.Hint.Value = "❌ Использование: /bot [skin] [weapon]";
-                return;
-            }
-            
-            const skinId = parseInt(args[1]);
-            const weaponId = parseInt(args[2]);
-            
-            if (isNaN(skinId)) {
-                sender.Ui.Hint.Value = "❌ Некорректный ID скина!";
-                return;
-            }
-            
-            if (isNaN(weaponId)) {
-                sender.Ui.Hint.Value = "❌ Некорректный ID оружия!";
-                return;
-            }
-            
-            spawnBot(sender, skinId, weaponId);
-        }
-        
-        else if (command === '/aye') {
-            possessBot(sender);
         }
         
         else if (command === '/players') {
@@ -341,7 +261,7 @@ function initChatCommands() {
             if (alivePlayers.length > 0) {
                 let list = "👥 Живые игроки:\n";
                 alivePlayers.forEach((player, index) => {
-                    list += `${index+1}. ${player.NickName}\n`;
+                    list += `${index+1}. ${player.NickName} (ID: ${player.RoomId})\n`;
                 });
                 sender.Ui.Hint.Value = list;
             } else {
@@ -419,6 +339,7 @@ function initChatCommands() {
 // Настройка лидерборда
 function setupLeaderboard() {
     LeaderBoard.PlayerLeaderBoardValues = [
+        new DisplayValueHeader('RoomId', 'ID', 'ID'),
         new DisplayValueHeader('Kills', 'Убийства', 'Убийства'),
         new DisplayValueHeader('Deaths', 'Смерти', 'Смерти'),
         new DisplayValueHeader('Scores', 'Очки', 'Очки')
@@ -459,10 +380,6 @@ function setupEventHandlers() {
         handleKill(killer, victim);
     });
     
-    Damage.OnDeath.Add(function(player) {
-        player.Properties.Deaths.Value++;
-    });
-    
     // Обработчик основного таймера
     mainTimer.OnTimer.Add(function() {
         switch(gameMode.state) {
@@ -486,6 +403,7 @@ function setupEventHandlers() {
     roundTimer.OnTimer.Add(function() {
         if (gameMode.state === GameStates.GAME) {
             Props.Get('Round_Time').Value--;
+            stateProp.Value = `${gameMode.state} | Время: ${Props.Get('Round_Time').Value}`;
             
             if (Props.Get('Round_Time').Value <= 0) {
                 checkWinConditions();
@@ -515,10 +433,14 @@ function initGameMode() {
     // Регистрация обработчиков событий
     setupEventHandlers();
     
-    
+    // Запускаем игру
+    setGameState(GameStates.WAITING);
     
     // Запускаем таймер раунда
     roundTimer.RestartLoop(1);
+    
+    // Отладочное сообщение
+    room.Ui.Hint.Value = "Режим 'Предательство' успешно загружен!";
 }
 
 // Запуск игры
