@@ -1,73 +1,90 @@
 {
-  "Name": "Among Us",
-  "Description": "Режим в стиле Among Us с предателями и заданиями",
+  "Name": "Предательство",
+  "Description": "Режим предательства. Один игрок - предатель, остальные должны его вычислить.",
   "StartClientVersion": 573,
   "MapFilter": {
     "IsBlank": false,
     "HasParcourEnd": false
   },
+  "MapLists": [
+    {
+      "MapListId": 324,
+      "Name": "Официальные карты"
+    },
+    {
+      "MapListId": 581
+    }
+  ],
   "Parameters": {
-    "Int": [
+    "Bool": [
       {
-        "Name": "ImpostorCount",
-        "DisplayName": "Количество предателей",
-        "Default": 1,
-        "Min": 1,
-        "Max": 3,
+        "Name": "MapRotation",
+        "DisplayName": "GmParams/MapRotation",
+        "Default": true,
         "Order": 1
       },
       {
-        "Name": "TasksPerPlayer",
-        "DisplayName": "Заданий на игрока",
-        "Default": 3,
-        "Min": 1,
-        "Max": 5,
+        "Name": "EnableSheriff",
+        "DisplayName": "GmParams/EnableSheriff",
+        "Default": true,
         "Order": 2
       },
       {
-        "Name": "PlayersToStart",
-        "DisplayName": "Игроков для старта",
-        "Default": 1,
-        "Min": 1,
-        "Max": 12,
+        "Name": "EnableMedic",
+        "DisplayName": "GmParams/EnableMedic",
+        "Default": true,
         "Order": 3
       },
       {
-        "Name": "KillCooldown",
-        "DisplayName": "Перезарядка убийства (сек)",
-        "Default": 30,
-        "Min": 10,
-        "Max": 60,
+        "Name": "EnableEngineer",
+        "DisplayName": "GmParams/EnableEngineer",
+        "Default": true,
         "Order": 4
       },
       {
-        "Name": "DiscussionTime",
-        "DisplayName": "Время обсуждения (сек)",
-        "Default": 90,
-        "Min": 30,
-        "Max": 180,
+        "Name": "FreezeOnDeath",
+        "DisplayName": "GmParams/FreezeOnDeath",
+        "Default": true,
         "Order": 5
-      },
-      {
-        "Name": "VotingTime",
-        "DisplayName": "Время голосования (сек)",
-        "Default": 60,
-        "Min": 15,
-        "Max": 120,
-        "Order": 6
       }
     ],
-    "Bool": [
+    "Dropdown": [
       {
-        "Name": "SheriffEnabled",
-        "DisplayName": "Включить шерифа",
-        "Default": true,
+        "Name": "default_game_mode_length",
+        "DisplayName": "GmParams/Length",
+        "Default": "Length_M",
+        "Order": 6,
+        "Variants": [
+          {
+            "Name": "Length_S",
+            "DisplayName": "GmParams/Length_S"
+          },
+          {
+            "Name": "Length_M",
+            "DisplayName": "GmParams/Length_M"
+          },
+          {
+            "Name": "Length_L",
+            "DisplayName": "GmParams/Length_L"
+          }
+        ]
+      }
+    ],
+    "Number": [
+      {
+        "Name": "MinPlayers",
+        "DisplayName": "GmParams/MinPlayers",
+        "Default": 1,
+        "Min": 1,
+        "Max": 16,
         "Order": 7
       },
       {
-        "Name": "FriendlyFire",
-        "DisplayName": "Дружественный огонь",
-        "Default": false,
+        "Name": "ImpostersCount",
+        "DisplayName": "GmParams/ImpostersCount",
+        "Default": 1,
+        "Min": 1,
+        "Max": 3,
         "Order": 8
       }
     ]
