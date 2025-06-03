@@ -1,6 +1,5 @@
 import { DisplayValueHeader, Color, Vector3 } from 'pixel_combats/basic';
-import { Game, Players, Inventory, LeaderBoard, Teams, Damage, Ui, Properties, GameMode, Spawns, Timers, Chat } from 'pixel_combats/room';
-import { BotsService } from 'pixel_combats/room/services/bots';
+import { Game, Players, Inventory, LeaderBoard, Teams, Damage, Ui, Properties, GameMode, Spawns, Timers, Chat, Bots } from 'pixel_combats/room';
 
 // ========== КОНСТАНТЫ И НАСТРОЙКИ ==========
 const WAITING_TIME = 10;      // Ожидание игроков (сек)
