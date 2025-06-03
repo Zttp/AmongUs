@@ -26,6 +26,7 @@ const Inv = Inventory.GetContext();
 const Sp = Spawns.GetContext();
 const Dmg = Damage.GetContext();
 const Props = Properties.GetContext();
+const stateProp = Properties.GetContext().Get("State");
 
 // Состояния игры
 const GameStates = {
