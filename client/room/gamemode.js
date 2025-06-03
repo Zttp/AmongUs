@@ -1,5 +1,5 @@
 import { DisplayValueHeader, Color, Vector3 } from 'pixel_combats/basic';
-import { Game, Players, Inventory, LeaderBoard, BuildBlocksSet, Teams, Damage, BreackGraph, Ui, Properties, GameMode, Spawns, Timers, Bots, Chat } from 'pixel_combats/room';
+import { Game, Players, Inventory, LeaderBoard, Teams, Damage, Ui, Properties, GameMode, Spawns, Timers, Bots } from 'pixel_combats/room';
 
 // Настройки режима
 const WAITING_TIME = 10; // Ожидание игроков
@@ -25,7 +25,6 @@ const GameStates = {
 
 // Основные таймеры
 const mainTimer = Timers.GetContext().Get("Main");
-const serverTimer = Timers.GetContext().Get("Server");
 const roundTimer = Timers.GetContext().Get("Round");
 
 // Глобальные переменные
@@ -36,7 +35,6 @@ const gameMode = {
     deadPlayers: new Set(),
     playerBots: new Map(),
     playerInBot: new Map(),
-    botPlayer: new Map(),
     freezeTimers: new Map(),
     adminId: "D411BD94CAE31F89"
 };
@@ -46,41 +44,11 @@ function initServerProperties() {
     Props.Get('Time_Hours').Value = 0;
     Props.Get('Time_Minutes').Value = 0;
     Props.Get('Time_Seconds').Value = 0;
-    Props.Get('Players_Now').Value = 0;
-    Props.Get('Players_WereMax').Value = 24;
+    Props.Get('Players_Now').Value = Players.All.length;
+    Props.Get('Players_WereMax').Value = Players.All.length;
     Props.Get('Time_FixedString').Value = '00:00:00';
     Props.Get('Round_Time').Value = GAME_TIME;
     Props.Get('Game_State').Value = gameMode.state;
-}
-
-function initServerTimer() {
-    serverTimer.OnTimer.Add(function(t) {
-        Props.Get('Time_Seconds').Value++;
-        
-        if (Props.Get('Time_Seconds').Value >= 60) {
-            Props.Get('Time_Seconds').Value = 0;
-            Props.Get('Time_Minutes').Value++;
-        }
-        
-        if (Props.Get('Time_Minutes').Value >= 60) {
-            Props.Get('Time_Minutes').Value = 0;
-            Props.Get('Time_Hours').Value++;
-        }
-        
-        Props.Get('Players_Now').Value = Players.All.length;
-        
-        if (Props.Get('Players_Now').Value > Props.Get('Players_WereMax').Value) {
-            Props.Get('Players_WereMax').Value = Props.Get('Players_Now').Value;
-        }
-        
-        Props.Get('Time_FixedString').Value = 
-            `${Props.Get('Time_Hours').Value.toString().padStart(2, '0')}:` +
-            `${Props.Get('Time_Minutes').Value.toString().padStart(2, '0')}:` +
-            `${Props.Get('Time_Seconds').Value.toString().padStart(2, '0')}`;
-        
-        serverTimer.RestartLoop(1);
-    });
-    serverTimer.RestartLoop(1);
 }
 
 // Создание команд
@@ -97,8 +65,6 @@ function setupTeams() {
 
     return { PlayersTeam, LosersTeam };
 }
-
-const { PlayersTeam, LosersTeam } = setupTeams();
 
 // Управление состоянием игры
 function setGameState(newState) {
@@ -122,7 +88,7 @@ function setGameState(newState) {
             Sp.Enable = true;
             Sp.Spawn();
             assignRoles();
-            mainTimer.Restart(GAME_TIME);
+            roundTimer.RestartLoop(1); // Запускаем таймер раунда
             break;
             
         case GameStates.END:
@@ -158,9 +124,9 @@ function assignRoles() {
     
     // Остальные - обычные игроки
     players.forEach((player, index) => {
-        if (index !== traitorIndex && index !== sheriffIndex) {
+        if (index !== traitorIndex && (!gameMode.sheriff || index !== sheriffIndex)) {
             player.Ui.Hint.Value = "👤 Ты обычный игрок! Ищи предателя!";
-            player.contextedProperties.SkinType.Value = 5;
+            player.contextedProperties.SkinType.Value = 0;
         }
     });
 }
@@ -241,10 +207,10 @@ function handleKill(killer, victim) {
 function killPlayer(player) {
     if (gameMode.deadPlayers.has(player.id)) return;
     
-    player.Team = LosersTeam;
+    player.Team = Teams.Get('Losers');
     gameMode.deadPlayers.add(player.id);
     player.contextedProperties.SkinType.Value = 2;
-    player.Ui.Hint.Value = "Вы мертвы! Используйте /dead [сообщение] для чата";
+    player.Ui.Hint.Value = "💀 Вы мертвы! Используйте /dead [сообщение] для чата";
     
     // Запускаем цикл зависания для жертвы
     const freezeTimer = Timers.GetContext(player).Get('DeathFreeze');
@@ -305,15 +271,12 @@ function possessBot(player) {
     const controlTimer = Timers.GetContext(player).Get('BotControl');
     controlTimer.OnTimer.Add(() => {
         if (bot.Alive) {
-            // Обновляем позицию и направление бота
             bot.SetPositionAndDirection(player.Position, player.LookDirection);
         }
     });
     controlTimer.RestartLoop(0.1);
     
     gameMode.playerInBot.set(player.id, bot);
-    gameMode.botPlayer.set(bot.Id, player.id);
-    
     player.Ui.Hint.Value = "👻 Вы управляете ботом!";
 }
 
@@ -433,7 +396,7 @@ function initChatCommands() {
             const player = Players.GetByRoomId(playerId);
             
             if (player && gameMode.deadPlayers.has(player.id)) {
-                player.Team = PlayersTeam;
+                player.Team = Teams.Get('Players');
                 gameMode.deadPlayers.delete(player.id);
                 player.contextedProperties.SkinType.Value = 0;
                 
@@ -475,8 +438,8 @@ function setupEventHandlers() {
         player.Properties.Get('Scores').Value = 0;
         
         // Новые игроки присоединяются как мертвые, если игра уже идет
-        if (gameMode.state !== GameStates.WAITING && gameMode.state !== GameStates.END) {
-            player.Team = LosersTeam;
+        if (gameMode.state === GameStates.GAME) {
+            player.Team = Teams.Get('Losers');
             gameMode.deadPlayers.add(player.id);
             player.contextedProperties.SkinType.Value = 2;
             player.Ui.Hint.Value = "💀 Вы присоединились к уже идущей игре как мертвый";
@@ -484,7 +447,7 @@ function setupEventHandlers() {
             return;
         }
         
-        player.Team = PlayersTeam;
+        player.Team = Teams.Get('Players');
         player.contextedProperties.SkinType.Value = 0;
         
         if (Players.All.length >= 3 && gameMode.state === GameStates.WAITING) {
@@ -492,15 +455,12 @@ function setupEventHandlers() {
         }
     });
     
-    Teams.OnPlayerChangeTeam.Add(function(player) {
-        // Запрещаем смену команды кроме как через убийство
-        if (player.Team.Name !== 'Losers') {
-            player.Team = PlayersTeam;
-        }
-    });
-    
     Damage.OnKill.Add(function(killer, victim) {
         handleKill(killer, victim);
+    });
+    
+    Damage.OnDeath.Add(function(player) {
+        player.Properties.Deaths.Value++;
     });
     
     // Обработчик основного таймера
@@ -511,15 +471,6 @@ function setupEventHandlers() {
                     setGameState(GameStates.GAME);
                 } else {
                     mainTimer.Restart(WAITING_TIME);
-                }
-                break;
-                
-            case GameStates.GAME:
-                Props.Get('Round_Time').Value--;
-                if (Props.Get('Round_Time').Value <= 0) {
-                    checkWinConditions();
-                } else {
-                    mainTimer.Restart(1);
                 }
                 break;
                 
@@ -535,26 +486,40 @@ function setupEventHandlers() {
     roundTimer.OnTimer.Add(function() {
         if (gameMode.state === GameStates.GAME) {
             Props.Get('Round_Time').Value--;
+            
             if (Props.Get('Round_Time').Value <= 0) {
                 checkWinConditions();
             }
         }
     });
-    roundTimer.RestartLoop(1);
 }
 
-// Инициализация игры
+// Основная функция инициализации игры
 function initGameMode() {
+    // Настройка контекстов
     Dmg.DamageOut.Value = true;
     Dmg.FriendlyFire.Value = false;
-    BreackGraph.OnlyPlayerBlocksDmg = true;
     
+    // Создаем команды
+    setupTeams();
     
+    // Инициализация сервера
+    initServerProperties();
+    
+    // Настройка лидерборда
     setupLeaderboard();
+    
+    // Инициализация команд чата
     initChatCommands();
+    
+    // Регистрация обработчиков событий
     setupEventHandlers();
     
+    // Запускаем игру
+    setGameState(GameStates.WAITING);
     
+    // Запускаем таймер раунда
+    roundTimer.RestartLoop(1);
 }
 
 // Запуск игры
