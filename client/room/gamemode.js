@@ -92,7 +92,7 @@ function setupTeams() {
 
     // Настройки спавнов
     PlayersTeam.Spawns.SpawnPointsGroups.Add(1);
-    LosersTeam.Spawns.Spawn = false; // Мертвые не спавнятся
+    LosersTeam.Spawns.SpawnPointsGroups.Add(1);
 
     return { PlayersTeam, LosersTeam };
 }
@@ -537,7 +537,10 @@ function initGameMode() {
     BreackGraph.OnlyPlayerBlocksDmg = true;
     
     initServerProperties();
-    
+    initServerTimer();
+    setupLeaderboard();
+    initChatCommands();
+    setupEventHandlers();
     
     setGameState(GameStates.WAITING);
 }
