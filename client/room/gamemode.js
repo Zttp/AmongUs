@@ -537,10 +537,7 @@ function initGameMode() {
     BreackGraph.OnlyPlayerBlocksDmg = true;
     
     initServerProperties();
-    initServerTimer();
-    setupLeaderboard();
-    initChatCommands();
-    setupEventHandlers();
+    
     
     setGameState(GameStates.WAITING);
 }
