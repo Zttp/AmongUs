@@ -26,6 +26,7 @@ const GameStates = {
 // Основные таймеры
 const mainTimer = Timers.GetContext().Get("Main");
 const serverTimer = Timers.GetContext().Get("Server");
+const roundTimer = Timers.GetContext().Get("Round");
 
 // Глобальные переменные
 const gameMode = {
@@ -92,7 +93,7 @@ function setupTeams() {
 
     // Настройки спавнов
     PlayersTeam.Spawns.SpawnPointsGroups.Add(1);
-    LosersTeam.Spawns.SpawnPointsGroups.Add(1);
+    LosersTeam.Spawns.Spawn = false; // Мертвые не спавнятся
 
     return { PlayersTeam, LosersTeam };
 }
@@ -106,7 +107,7 @@ function setGameState(newState) {
     
     switch(newState) {
         case GameStates.WAITING:
-            Ui.GetContext().Hint.Value = "Ожидание игроков...";
+            Ui.GetContext().Hint.Value = "🕒 Ожидание игроков...";
             Sp.Enable = false;
             mainTimer.Restart(WAITING_TIME);
             break;
@@ -128,7 +129,6 @@ function setGameState(newState) {
             Ui.GetContext().Hint.Value = "🏁 Матч окончен!";
             Sp.Enable = false;
             mainTimer.Restart(END_TIME);
-            Game.RestartGame();
             break;
     }
 }
@@ -158,7 +158,7 @@ function assignRoles() {
     
     // Остальные - обычные игроки
     players.forEach((player, index) => {
-        if (index !== traitorIndex && index !== gameMode.sheriff) {
+        if (index !== traitorIndex && index !== sheriffIndex) {
             player.Ui.Hint.Value = "👤 Ты обычный игрок! Ищи предателя!";
             player.contextedProperties.SkinType.Value = 0;
         }
@@ -169,7 +169,6 @@ function assignRoles() {
 function checkWinConditions() {
     const alivePlayers = Players.All.filter(p => !gameMode.deadPlayers.has(p.id));
     const traitorAlive = alivePlayers.some(p => p.id === gameMode.traitor);
-    const sheriffAlive = gameMode.sheriff ? alivePlayers.some(p => p.id === gameMode.sheriff) : false;
     
     // Предатель побеждает, если остался 1 игрок и он сам
     if (alivePlayers.length === 1 && traitorAlive) {
@@ -240,10 +239,12 @@ function handleKill(killer, victim) {
 
 // Убийство игрока
 function killPlayer(player) {
+    if (gameMode.deadPlayers.has(player.id)) return;
+    
     player.Team = LosersTeam;
     gameMode.deadPlayers.add(player.id);
     player.contextedProperties.SkinType.Value = 2;
-    player.Ui.Hint.Value = "Вас убили! Используйте /dead [сообщение] для чата";
+    player.Ui.Hint.Value = "💀 Вы мертвы! Используйте /dead [сообщение] для чата";
     
     // Запускаем цикл зависания для жертвы
     const freezeTimer = Timers.GetContext(player).Get('DeathFreeze');
@@ -304,6 +305,7 @@ function possessBot(player) {
     const controlTimer = Timers.GetContext(player).Get('BotControl');
     controlTimer.OnTimer.Add(() => {
         if (bot.Alive) {
+            // Обновляем позицию и направление бота
             bot.SetPositionAndDirection(player.Position, player.LookDirection);
         }
     });
@@ -467,6 +469,11 @@ function setupLeaderboard() {
 // Обработчики событий
 function setupEventHandlers() {
     Players.OnPlayerConnected.Add(function(player) {
+        // Инициализация свойств игрока
+        player.Properties.Get('Kills').Value = 0;
+        player.Properties.Get('Deaths').Value = 0;
+        player.Properties.Get('Scores').Value = 0;
+        
         // Новые игроки присоединяются как мертвые, если игра уже идет
         if (gameMode.state !== GameStates.WAITING && gameMode.state !== GameStates.END) {
             player.Team = LosersTeam;
@@ -478,9 +485,6 @@ function setupEventHandlers() {
         }
         
         player.Team = PlayersTeam;
-        player.Properties.Get('Kills').Value = 0;
-        player.Properties.Get('Deaths').Value = 0;
-        player.Properties.Get('Scores').Value = 0;
         player.contextedProperties.SkinType.Value = 0;
         
         if (Players.All.length >= 3 && gameMode.state === GameStates.WAITING) {
@@ -497,10 +501,6 @@ function setupEventHandlers() {
     
     Damage.OnKill.Add(function(killer, victim) {
         handleKill(killer, victim);
-    });
-    
-    Damage.OnDeath.Add(function(player) {
-        player.Properties.Deaths.Value++;
     });
     
     // Обработчик основного таймера
@@ -524,10 +524,23 @@ function setupEventHandlers() {
                 break;
                 
             case GameStates.END:
-                Game.RestartGame();
+                if (mainTimer.Time <= 0) {
+                    Game.RestartGame();
+                }
                 break;
         }
     });
+    
+    // Таймер раунда для отсчета времени
+    roundTimer.OnTimer.Add(function() {
+        if (gameMode.state === GameStates.GAME) {
+            Props.Get('Round_Time').Value--;
+            if (Props.Get('Round_Time').Value <= 0) {
+                checkWinConditions();
+            }
+        }
+    });
+    roundTimer.RestartLoop(1);
 }
 
 // Инициализация игры
@@ -541,7 +554,6 @@ function initGameMode() {
     setupLeaderboard();
     initChatCommands();
     setupEventHandlers();
-    
     setGameState(GameStates.WAITING);
 }
 
