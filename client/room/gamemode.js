@@ -160,7 +160,7 @@ function assignRoles() {
     players.forEach((player, index) => {
         if (index !== traitorIndex && index !== sheriffIndex) {
             player.Ui.Hint.Value = "👤 Ты обычный игрок! Ищи предателя!";
-            player.contextedProperties.SkinType.Value = 0;
+            player.contextedProperties.SkinType.Value = 5;
         }
     });
 }
@@ -244,7 +244,7 @@ function killPlayer(player) {
     player.Team = LosersTeam;
     gameMode.deadPlayers.add(player.id);
     player.contextedProperties.SkinType.Value = 2;
-    player.Ui.Hint.Value = "💀 Вы мертвы! Используйте /dead [сообщение] для чата";
+    player.Ui.Hint.Value = "Вы мертвы! Используйте /dead [сообщение] для чата";
     
     // Запускаем цикл зависания для жертвы
     const freezeTimer = Timers.GetContext(player).Get('DeathFreeze');
@@ -551,9 +551,7 @@ function initGameMode() {
     
     initServerProperties();
     initServerTimer();
-    setupLeaderboard();
     
-    setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
 
