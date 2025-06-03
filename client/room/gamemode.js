@@ -491,13 +491,39 @@ function initChatCommands() {
         const command = args[0].toLowerCase();
 
         if (command === '/help') {
-            sender.Ui.Hint.Value = `Доступные команды:
-/report [id] - сообщить о теле
+            sender.Ui.Hint.Value = `🚀 Доступные команды:
+/report - сообщить о ближайшем теле
 /meeting - экстренное собрание
 /vote [id] - голосовать за изгнание
 /bot [skin] [weapon] - создать бота (предатель)
 /aye - управлять ботом (предатель)
-/dead [msg] - чат для мертвых`;
+/players - список живых игроков
+/whoami - узнать свою роль
+/dead [msg] - чат для мертвых
+/suicide - самоубийство (админ)
+/revive [id] - воскресить игрока (админ)`;
+        }
+        
+        else if (command === '/report') {
+            // Поиск ближайшего тела для репорта
+            let closestBody = null;
+            let minDistance = Infinity;
+            
+            gameMode.bodies.forEach((body, playerId) => {
+                if (gameMode.bodiesReported.has(playerId)) return;
+                
+                const distance = sender.Position.sub(body.position).length;
+                if (distance < minDistance && distance < 5) { // Проверка радиуса 5 блоков
+                    minDistance = distance;
+                    closestBody = { playerId, position: body.position };
+                }
+            });
+            
+            if (closestBody) {
+                reportBody(sender, closestBody.playerId);
+            } else {
+                sender.Ui.Hint.Value = "Рядом нет нерепортнутых тел!";
+            }
         }
 
         else if (command === '/meeting') {
@@ -505,23 +531,71 @@ function initChatCommands() {
         }
 
         else if (command === '/vote') {
-            if (args.length < 2) return;
+            if (args.length < 2) {
+                sender.Ui.Hint.Value = "Использование: /vote [id]";
+                return;
+            }
+            
             const suspectId = Number(args[1]);
             vote(sender, suspectId);
         }
         
         else if (command === '/bot') {
+            if (sender.id !== gameMode.traitor) {
+                sender.Ui.Hint.Value = "❌ Только предатель может создавать ботов!";
+                return;
+            }
+            
             if (args.length < 3) {
                 sender.Ui.Hint.Value = "Использование: /bot [skin] [weapon]";
                 return;
             }
+            
             const skinId = parseInt(args[1]);
             const weaponId = parseInt(args[2]);
+            
+            if (isNaN(skinId) {
+                sender.Ui.Hint.Value = "Некорректный ID скина!";
+                return;
+            }
+            
+            if (isNaN(weaponId)) {
+                sender.Ui.Hint.Value = "Некорректный ID оружия!";
+                return;
+            }
+            
             spawnBot(sender, skinId, weaponId);
         }
         
         else if (command === '/aye') {
             possessBot(sender);
+        }
+        
+        else if (command === '/players') {
+            const alivePlayers = Players.All.filter(p => 
+                !gameMode.deadPlayers.has(p.id) && 
+                p.Team.Name === "Players"
+            );
+            
+            if (alivePlayers.length > 0) {
+                let list = "👥 Живые игроки:\n";
+                alivePlayers.forEach((player, index) => {
+                    list += `${index+1}. ${player.NickName} (ID: ${player.RoomId})\n`;
+                });
+                sender.Ui.Hint.Value = list;
+            } else {
+                sender.Ui.Hint.Value = "Нет живых игроков!";
+            }
+        }
+        
+        else if (command === '/whoami') {
+            if (sender.id === gameMode.traitor) {
+                sender.Ui.Hint.Value = "Ты ПРЕДАТЕЛЬ! Убей всех, но не попадись!";
+            } else if (sender.id === gameMode.sheriff) {
+                sender.Ui.Hint.Value = "Ты ШЕРИФ! Найди и убей предателя!";
+            } else {
+                sender.Ui.Hint.Value = "Ты МИРНЫЙ игрок! Ищи предателя!";
+            }
         }
         
         else if (command === '/dead') {
@@ -530,9 +604,52 @@ function initChatCommands() {
                 // Отправляем сообщение в мертвый чат
                 Players.All.forEach(player => {
                     if (gameMode.deadPlayers.has(player.id)) {
-                        player.Ui.Hint.Value = `[МЕРТВЫЕ] ${sender.NickName}: ${message}`;
+                        player.Ui.Hint.Value = `💀 [МЕРТВЫЕ] ${sender.NickName}: ${message}`;
                     }
                 });
+            }
+        }
+        
+        // Админ-команды
+        else if (command === '/suicide') {
+            if (sender.id !== gameMode.adminId) {
+                sender.Ui.Hint.Value = "❌ Недостаточно прав!";
+                return;
+            }
+            killPlayer(sender);
+            sender.Ui.Hint.Value = "Вы убили себя!";
+        }
+        
+        else if (command === '/revive') {
+            if (sender.id !== gameMode.adminId) {
+                sender.Ui.Hint.Value = "❌ Недостаточно прав!";
+                return;
+            }
+            
+            if (args.length < 2) {
+                sender.Ui.Hint.Value = "Использование: /revive [id]";
+                return;
+            }
+            
+            const playerId = Number(args[1]);
+            const player = Players.GetByRoomId(playerId);
+            
+            if (player && gameMode.deadPlayers.has(player.id)) {
+                player.Team = PlayersTeam;
+                gameMode.deadPlayers.delete(player.id);
+                player.contextedProperties.SkinType.Value = 0;
+                
+                // Останавливаем таймер заморозки
+                const freezeTimer = gameMode.freezeTimers.get(player.id);
+                if (freezeTimer) {
+                    freezeTimer.Stop();
+                    gameMode.freezeTimers.delete(player.id);
+                }
+                
+                sender.Ui.Hint.Value = `✅ ${player.NickName} воскрешен!`;
+                player.Ui.Hint.Value = "Администратор воскресил вас!";
+            } else {
+                sender.Ui.Hint.Value = "Игрок не найден или не мертв!";
             }
         }
     });
