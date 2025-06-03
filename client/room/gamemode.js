@@ -538,9 +538,7 @@ function initGameMode() {
     
     initServerProperties();
     initServerTimer();
-    setupLeaderboard();
     
-    setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
 
