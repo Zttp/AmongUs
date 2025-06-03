@@ -421,18 +421,7 @@ function initGameMode() {
     // Создаем команды
     setupTeams();
     
-    // Инициализация сервера
-    
-    
-    // Настройка лидерборда
-    setupLeaderboard();
-    
-    // Инициализация команд чата
-    initChatCommands();
-    
-    // Регистрация обработчиков событий
-    setupEventHandlers();
-    
+    initServerProperties();
     // Запускаем игру
     setGameState(GameStates.WAITING);
     
