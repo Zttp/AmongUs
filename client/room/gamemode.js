@@ -1,5 +1,5 @@
 import { DisplayValueHeader, Color, Vector3 } from 'pixel_combats/basic';
-import { Game, Players, Inventory, LeaderBoard, BuildBlocksSet, Teams, Damage, BreackGraph, Ui, Properties, GameMode, Spawns, Timers, Bots } from 'pixel_combats/room';
+import { Game, Players, Inventory, LeaderBoard, BuildBlocksSet, Teams, Damage, BreackGraph, Ui, Properties, GameMode, Spawns, Timers, Bots, Chat } from 'pixel_combats/room';
 
 // Настройки режима
 const WAITING_TIME = 10; // Ожидание игроков
@@ -552,7 +552,7 @@ function initGameMode() {
     initServerProperties();
     initServerTimer();
     setupLeaderboard();
-    initChatCommands();
+    
     setupEventHandlers();
     setGameState(GameStates.WAITING);
 }
