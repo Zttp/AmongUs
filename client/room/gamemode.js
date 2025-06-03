@@ -549,10 +549,12 @@ function initGameMode() {
     Dmg.FriendlyFire.Value = false;
     BreackGraph.OnlyPlayerBlocksDmg = true;
     
-    initServerProperties();
-    initServerTimer();
     
-    setGameState(GameStates.WAITING);
+    setupLeaderboard();
+    initChatCommands();
+    setupEventHandlers();
+    
+    
 }
 
 // Запуск игры
